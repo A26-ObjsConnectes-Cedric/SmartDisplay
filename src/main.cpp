@@ -2,29 +2,35 @@
  * SmartDisplay - Mandat 08 (projet Ariane)
  * main.cpp : point d'entrée du prototype.
  *
- * Ce fichier sert uniquement à initialiser les composantes et à
- * coordonner l'application. La logique est placée dans des classes
- * dédiées, ajoutées par les prochaines issues :
- *   - Message        (texte + type NORMAL / ALERT)
- *   - IMessageSource (interface pour toute source de message)
- *   - ButtonSource   (bouton local qui simule la réception de messages)
- *   - Display        (écran OLED + icônes)
- *   - LedActuator    (DEL d'alerte)
- *   - StateMachine   (IDLE / MESSAGE_RECEIVED / DISPLAYING / ERROR)
+ * Ce fichier sert uniquement à créer les objets, à initialiser les
+ * composantes et à coordonner l'application. Toute la logique est dans
+ * les classes (voir include/).
  */
 
 #include <Arduino.h>
 
+#include "inputs/ButtonSource.h"
+#include "config/Config.h"
+#include "outputs/Display.h"
+#include "outputs/LedActuator.h"
+#include "core/StateMachine.h"
+
+ButtonSource buttonSource(Config::BUTTON_PIN);
+Display display;
+LedActuator led(Config::LED_PIN);
+StateMachine stateMachine(&buttonSource, &display, &led);
+
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(Config::SERIAL_BAUD_RATE);
 
-  unsigned long now = millis();
-
-  while (!Serial && millis() - now < 2000) {
+  buttonSource.begin();
+  led.begin();
+  if (!display.begin()) {
+    Serial.println("Display initialization failed");
   }
-
-  Serial.println("SmartDisplay - PlatformIO project initialized");
+  stateMachine.begin();
 }
 
 void loop() {
+  stateMachine.update();
 }
