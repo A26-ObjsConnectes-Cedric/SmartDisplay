@@ -12,9 +12,6 @@ enum class State
     DISPLAYING, ERROR 
 };
 
-// Logique applicative du panneau.
-// Responsabilité : coordonner la source, l'affichage et la DEL selon l'état courant.
-// La machine à états ne connaît que l'interface IMessageSource, pas le bouton.
 class StateMachine {
  public:
   StateMachine(IMessageSource* source, Display* display, LedActuator* led);
