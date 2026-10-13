@@ -1,10 +1,6 @@
 /*
  * SmartDisplay - Mandat 08 (projet Ariane)
  * main.cpp : point d'entrée du prototype.
- *
- * Ce fichier sert uniquement à créer les objets, à initialiser les
- * composantes et à coordonner l'application. Toute la logique est dans
- * les classes (voir include/).
  */
 
 #include <Arduino.h>
@@ -21,16 +17,26 @@ LedActuator led(Config::LED_PIN);
 StateMachine stateMachine(&buttonSource, &display, &led);
 
 void setup() {
-  Serial.begin(Config::SERIAL_BAUD_RATE);
+  Serial.begin(SERIAL_BAUD_RATE);
 
   buttonSource.begin();
   led.begin();
-  if (!display.begin()) {
-    Serial.println("Display initialization failed");
-  }
   stateMachine.begin();
 }
 
 void loop() {
   stateMachine.update();
+
+  // TEMPORAIRE: clignotement de test, non bloquant,
+  static unsigned long lastToggle = 0;
+  if (millis() - lastToggle >= 500) {
+    lastToggle = millis();
+    if (led.isOn()) {
+      led.turnOff();
+    } 
+    else {
+      led.turnOn();
+    }
+    Serial.println(led.isOn() ? "[test] LED ON" : "[test] LED OFF");
+  }
 }
