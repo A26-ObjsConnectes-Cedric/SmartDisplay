@@ -21,41 +21,28 @@ void setup() {
 
   buttonSource.begin();
   led.begin();
+  display.begin();
   stateMachine.begin();
 }
 
 void loop() {
   stateMachine.update();
 
-  // TEMPORAIRE: clignotement de test, non bloquant,
-  static unsigned long lastToggle = 0;
-  if (millis() - lastToggle >= 500) {
-    lastToggle = millis();
-    if (led.isOn()) {
-      led.turnOff();
-    } 
-    else {
-      led.turnOn();
-    }
-    Serial.println(led.isOn() ? "[test] LED ON" : "[test] LED OFF");
-    // TEMPORAIRE (issue feature/button-input) : test de la lecture du bouton.
-  // Chaque appui affiche le message de test dans le moniteur série, et la DEL
-  // suit le type du message. À SUPPRIMER dans l'issue feature/state-machine.
+  // TEMPORAIRE (issue feature/oled-display) : test de l'affichage.
+  // Chaque appui affiche le message de test sur l'OLED, et la DEL suit le type
+  // du message. À SUPPRIMER dans l'issue feature/state-machine, où la machine
+  // à états prend en charge ce comportement.
   Message message;
   if (buttonSource.readMessage(message)) {
-    bool isAlert = message.getType() == MessageType::ALERT;
-    Serial.print("[test] message: \"");
-    Serial.print(message.getText());
-    Serial.print("\" | type: ");
-    Serial.print(isAlert ? "ALERT" : "NORMAL");
-    Serial.print(" | valid: ");
-    Serial.println(message.isValid() ? "yes" : "no");
-    if (isAlert) {
+    if (message.isValid()) {
+      display.showMessage(message);
+    } else {
+      display.showError("Invalid message");
+    }
+    if (message.getType() == MessageType::ALERT) {
       led.turnOn();
     } else {
       led.turnOff();
     }
-  }
-
   }
 }
