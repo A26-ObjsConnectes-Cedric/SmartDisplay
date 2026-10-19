@@ -7,10 +7,16 @@ class ButtonSource : public IMessageSource {
   explicit ButtonSource(uint8_t buttonPin);
 
   void begin() override;
+
   bool readMessage(Message& message) override;
 
  private:
+  bool wasPressed();
+
   uint8_t buttonPin;
   int messageIndex;
-  unsigned long lastPressTime;
+  int idleLevel;                
+  int lastReading;            
+  int stableLevel;              
+  unsigned long lastChangeTime; 
 };

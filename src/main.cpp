@@ -38,5 +38,24 @@ void loop() {
       led.turnOn();
     }
     Serial.println(led.isOn() ? "[test] LED ON" : "[test] LED OFF");
+    // TEMPORAIRE (issue feature/button-input) : test de la lecture du bouton.
+  // Chaque appui affiche le message de test dans le moniteur série, et la DEL
+  // suit le type du message. À SUPPRIMER dans l'issue feature/state-machine.
+  Message message;
+  if (buttonSource.readMessage(message)) {
+    bool isAlert = message.getType() == MessageType::ALERT;
+    Serial.print("[test] message: \"");
+    Serial.print(message.getText());
+    Serial.print("\" | type: ");
+    Serial.print(isAlert ? "ALERT" : "NORMAL");
+    Serial.print(" | valid: ");
+    Serial.println(message.isValid() ? "yes" : "no");
+    if (isAlert) {
+      led.turnOn();
+    } else {
+      led.turnOff();
+    }
+  }
+
   }
 }
