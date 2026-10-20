@@ -20,4 +20,7 @@ constexpr uint8_t OLED_I2C_ADDRESS = 0x3C;
 constexpr uint8_t OLED_SDA_PIN = 21;
 constexpr uint8_t OLED_SCL_PIN = 22;
 
+constexpr unsigned long DISPLAY_DURATION_MS = 10000;
+
+constexpr unsigned long ERROR_DURATION_MS = 3000;
 } 

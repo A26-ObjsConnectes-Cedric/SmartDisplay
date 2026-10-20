@@ -27,22 +27,4 @@ void setup() {
 
 void loop() {
   stateMachine.update();
-
-  // TEMPORAIRE (issue feature/oled-display) : test de l'affichage.
-  // Chaque appui affiche le message de test sur l'OLED, et la DEL suit le type
-  // du message. À SUPPRIMER dans l'issue feature/state-machine, où la machine
-  // à états prend en charge ce comportement.
-  Message message;
-  if (buttonSource.readMessage(message)) {
-    if (message.isValid()) {
-      display.showMessage(message);
-    } else {
-      display.showError("Invalid message");
-    }
-    if (message.getType() == MessageType::ALERT) {
-      led.turnOn();
-    } else {
-      led.turnOff();
-    }
-  }
 }
