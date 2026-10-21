@@ -12,7 +12,7 @@ La procédure d'installation et de mise en service sera complétée, une fois le
 
 ## État du projet
 - [x] Remise 1 — Analyse et planification (voir `docs/analyse/`)
-- [ ] Remise 2 — Prototype local ESP32
+- [x] Remise 2 — Prototype local ESP32 (voir `docs/conception/`)
 - [ ] Remise 3 — Intégration IoT et qualité
 - [ ] Remise 4 — Livraison finale
 
