@@ -23,4 +23,7 @@ constexpr uint8_t OLED_SCL_PIN = 22;
 constexpr unsigned long DISPLAY_DURATION_MS = 10000;
 
 constexpr unsigned long ERROR_DURATION_MS = 3000;
+
+
+#define WIFI_RETRY_INTERVAL_MS 5000
 } 
