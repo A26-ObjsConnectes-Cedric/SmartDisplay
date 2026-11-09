@@ -38,7 +38,6 @@ void setup() {
 }
 
 void loop() {
-  // Un seul appel par tour : aucune attente bloquante
   wifi.update();
   mqtt.update();
   stateMachine.update();

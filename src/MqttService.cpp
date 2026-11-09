@@ -1,5 +1,4 @@
 #include "services/MqttService.h"
-
 #include <string.h>
 
 #include "config/Config.h"
@@ -19,15 +18,12 @@ MqttService::MqttService(const char* host, uint16_t port, const char* clientId,
 
 void MqttService::begin() {
   client.setServer(host, port);
-  // Tampon un peu plus grand que celui par défaut (256 octets)
   client.setBufferSize(512);
-  // Limite l'attente d'une réponse du broker 
   client.setSocketTimeout(2);
   client.setCallback([this](char* topic, uint8_t* payload, unsigned int length) {
     onMessage(topic, payload, length);
   });
 
-  // La première tentative peut avoir lieu dès que le Wi-Fi est prêt
   lastAttemptMs = millis() - MQTT_RECONNECT_INTERVAL_MS;
 }
 
@@ -60,7 +56,7 @@ void MqttService::update() {
     return;
   }
 
-  // Lit les messages reçus
+  // Lit les messages reçus (rappelle onMessage)
   client.loop();
 }
 
@@ -77,6 +73,7 @@ void MqttService::connectToBroker() {
   Serial.println("[Mqtt] connected");
   wasConnected = true;
 
+  // Les abonnements sont perdus à chaque déconnexion : on les refait ici
   for (int i = 0; i < subscriptionCount; i++) {
     client.subscribe(subscriptions[i].topic);
     Serial.print("[Mqtt] subscribed to ");

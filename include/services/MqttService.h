@@ -5,8 +5,6 @@
 #include <WiFi.h>
 
 #include <functional>
-
-
 class MqttService {
  public:
   typedef std::function<void(const char* payload)> MessageHandler;
@@ -20,12 +18,14 @@ class MqttService {
 
   bool isConnected();
 
+ 
   bool subscribe(const char* topic, MessageHandler handler);
 
  private:
   static constexpr int MAX_SUBSCRIPTIONS = 4;
 
-  static constexpr unsigned int PAYLOAD_BUFFER_SIZE = 128;
+ 
+  static constexpr unsigned int PAYLOAD_BUFFER_SIZE = 256;
 
   struct Subscription {
     const char* topic;

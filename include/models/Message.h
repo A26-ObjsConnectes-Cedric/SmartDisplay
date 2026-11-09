@@ -2,11 +2,7 @@
 
 #include <Arduino.h>
 
-enum class MessageType
- { 
-    NORMAL,
-    ALERT 
-};
+enum class MessageType { NORMAL, ALERT };
 
 class Message {
  public:
@@ -14,14 +10,16 @@ class Message {
   static constexpr size_t MAX_TEXT_LENGTH = 60;
 
   Message();
-  Message(const String& text, MessageType type);
+  Message(const String& text, MessageType type, const String& id = "");
 
+  const String& getId() const;
   const String& getText() const;
   MessageType getType() const;
 
   bool isValid() const;
 
  private:
+  String id;
   String text;
   MessageType type;
 };
