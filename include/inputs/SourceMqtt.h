@@ -2,7 +2,6 @@
 
 #include "interfaces/IMessageSource.h"
 #include "services/MqttService.h"
-
 class SourceMqtt : public IMessageSource {
  public:
   SourceMqtt(MqttService& mqtt, const char* commandTopic);
@@ -16,6 +15,6 @@ class SourceMqtt : public IMessageSource {
 
   MqttService& mqtt;
   const char* commandTopic;
-  bool hasPending;       
+  bool hasPending;      
   Message pendingMessage;
 };

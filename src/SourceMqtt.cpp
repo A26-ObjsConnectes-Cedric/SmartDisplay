@@ -1,10 +1,6 @@
 #include "inputs/SourceMqtt.h"
 
-#include <string.h>
-
-namespace {
-const char* const ALERT_PREFIX = "ALERT:";
-}  // namespace
+#include "services/MessageParser.h"
 
 SourceMqtt::SourceMqtt(MqttService& mqtt, const char* commandTopic)
     : mqtt(mqtt), commandTopic(commandTopic), hasPending(false), pendingMessage() {}
@@ -14,16 +10,17 @@ void SourceMqtt::begin() {
 }
 
 void SourceMqtt::onPayload(const char* payload) {
-  String text(payload);
-  text.trim();
+  Message parsed;
+  String error;
 
-  MessageType type = MessageType::NORMAL;
-  if (strncmp(text.c_str(), ALERT_PREFIX, strlen(ALERT_PREFIX)) == 0) {
-    type = MessageType::ALERT;
+  if (MessageParser::parse(payload, parsed, error)) {
+    pendingMessage = parsed;
+  } else {
+    Serial.print("[Json] rejected: ");
+    Serial.println(error);
+    pendingMessage = Message();
   }
 
-  // Un seul message à la fois : s'il y en a déjà un non lu, le plus récent le remplace.
-  pendingMessage = Message(text, type);
   hasPending = true;
 }
 
