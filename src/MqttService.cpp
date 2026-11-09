@@ -21,7 +21,7 @@ void MqttService::begin() {
   client.setServer(host, port);
   // Tampon un peu plus grand que celui par défaut (256 octets)
   client.setBufferSize(512);
-  // Limite l'attente d'une réponse du broker (secondes)
+  // Limite l'attente d'une réponse du broker 
   client.setSocketTimeout(2);
   client.setCallback([this](char* topic, uint8_t* payload, unsigned int length) {
     onMessage(topic, payload, length);
@@ -46,14 +46,12 @@ bool MqttService::isConnected() { return client.connected(); }
 void MqttService::update() {
   bool connected = client.connected();
 
-  // On n'écrit dans le moniteur série que lors d'un changement d'état
   if (!connected && wasConnected) {
     Serial.println("[Mqtt] connection lost");
     wasConnected = false;
   }
 
   if (!connected) {
-    // Pas de tentative sans Wi-Fi, et seulement toutes les MQTT_RECONNECT_INTERVAL_MS
     if (WiFi.status() == WL_CONNECTED &&
         millis() - lastAttemptMs >= MQTT_RECONNECT_INTERVAL_MS) {
       lastAttemptMs = millis();
@@ -62,7 +60,7 @@ void MqttService::update() {
     return;
   }
 
-  // Lit les messages reçus (rappelle onMessage)
+  // Lit les messages reçus
   client.loop();
 }
 
@@ -79,7 +77,6 @@ void MqttService::connectToBroker() {
   Serial.println("[Mqtt] connected");
   wasConnected = true;
 
-  // Les abonnements sont perdus à chaque déconnexion : on les refait ici
   for (int i = 0; i < subscriptionCount; i++) {
     client.subscribe(subscriptions[i].topic);
     Serial.print("[Mqtt] subscribed to ");

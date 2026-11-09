@@ -7,7 +7,6 @@ class SourceMqtt : public IMessageSource {
  public:
   SourceMqtt(MqttService& mqtt, const char* commandTopic);
 
-  // Abonne la source au topic des commandes
   void begin() override;
 
   bool readMessage(Message& message) override;
