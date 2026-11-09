@@ -26,4 +26,11 @@ constexpr unsigned long ERROR_DURATION_MS = 3000;
 
 
 #define WIFI_RETRY_INTERVAL_MS 5000
+
+#define MQTT_HOST "mqtt.edwrdl-cedric.com"
+#define MQTT_PORT 1883
+#define MQTT_CLIENT_ID "smartdisplay-esp32"
+#define MQTT_RECONNECT_INTERVAL_MS 5000
+
+#define MQTT_TOPIC_CMD "ariane/smartdisplay/cmd"
 } 
