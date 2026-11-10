@@ -8,6 +8,7 @@ StateMachine::StateMachine(IMessageSource* source, Display* display, LedActuator
       source(source),
       display(display),
       led(led),
+      publisher(nullptr),
       stateEnteredAt(0) {}
 
 void StateMachine::begin() {
@@ -36,6 +37,14 @@ void StateMachine::update() {
 
 State StateMachine::getState() const { return currentState; }
 
+void StateMachine::setPublisher(IEventPublisher* newPublisher) { publisher = newPublisher; }
+
+void StateMachine::publishState() {
+  if (publisher != nullptr) {
+    publisher->publishState(stateName(currentState), led->isOn());
+  }
+}
+
 void StateMachine::handleIdle() {
   if (source->readMessage(currentMessage)) {
     changeState(State::MESSAGE_RECEIVED);
@@ -50,6 +59,10 @@ void StateMachine::handleMessageReceived() {
     } else {
       led->turnOff();
     }
+
+    if (publisher != nullptr) {
+      publisher->publishMessage(currentMessage);
+    }
     changeState(State::DISPLAYING);
   } else {
     led->turnOff();
@@ -57,6 +70,7 @@ void StateMachine::handleMessageReceived() {
     changeState(State::ERROR);
   }
 }
+
 
 void StateMachine::handleDisplaying() {
   if (source->readMessage(currentMessage)) {
@@ -86,6 +100,7 @@ void StateMachine::changeState(State newState) {
 
   currentState = newState;
   stateEnteredAt = millis();
+  publishState();
 }
 
 const char* StateMachine::stateName(State state) {
