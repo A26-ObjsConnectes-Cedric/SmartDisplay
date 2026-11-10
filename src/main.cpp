@@ -10,19 +10,19 @@
 #include "config/secrets.h"
 #include "outputs/Display.h"
 #include "outputs/LedActuator.h"
+#include "outputs/MqttPublisher.h"
 #include "core/StateMachine.h"
 #include "services/MqttService.h"
 #include "services/WifiService.h"
 
-// Composantes du prototype (les constructeurs n'accèdent pas au matériel)
 Display display;
 LedActuator led(Config::LED_PIN);
 WifiService wifi(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD);
 MqttService mqtt(MQTT_HOST, MQTT_PORT, MQTT_CLIENT_ID,
                  Secrets::MQTT_USER, Secrets::MQTT_PASSWORD);
-// La source MQTT remplace le bouton : la machine à états ne change pas
 SourceMqtt sourceMqtt(mqtt, MQTT_TOPIC_CMD);
 StateMachine stateMachine(&sourceMqtt, &display, &led);
+MqttPublisher publisher(mqtt, MQTT_TOPIC_STATE, MQTT_TOPIC_DATA);
 
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
@@ -32,7 +32,11 @@ void setup() {
     Serial.println("Display initialization failed (check I2C wiring and address)");
   }
   stateMachine.begin();
+  stateMachine.setPublisher(&publisher);
   wifi.begin();
+
+  mqtt.setWill(MQTT_TOPIC_STATE, Config::MQTT_WILL_PAYLOAD);
+  mqtt.setConnectHandler([]() { stateMachine.publishState(); });
   mqtt.begin();
   sourceMqtt.begin();
 }

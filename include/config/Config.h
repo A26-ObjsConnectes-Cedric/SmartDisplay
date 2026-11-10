@@ -33,4 +33,9 @@ constexpr unsigned long ERROR_DURATION_MS = 3000;
 #define MQTT_RECONNECT_INTERVAL_MS 5000
 
 #define MQTT_TOPIC_CMD "ariane/smartdisplay/cmd"
+#define  MQTT_TOPIC_STATE "ariane/smartdisplay/state"
+#define MQTT_TOPIC_DATA  "ariane/smartdisplay/data"
+
+constexpr const char* MQTT_WILL_PAYLOAD = "{\"state\":\"OFFLINE\"}";
+
 } 

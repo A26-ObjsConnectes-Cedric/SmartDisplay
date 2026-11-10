@@ -1,18 +1,18 @@
 #pragma once
 
+#include "interfaces/IEventPublisher.h"
 #include "interfaces/IMessageSource.h"
 #include "models/Message.h"
 #include "outputs/Display.h"
 #include "outputs/LedActuator.h"
 
+
 enum class State 
 { 
   IDLE, 
   MESSAGE_RECEIVED, 
-  DISPLAYING, 
-  ERROR 
+  DISPLAYING, ERROR 
 };
-
 class StateMachine {
  public:
   StateMachine(IMessageSource* source, Display* display, LedActuator* led);
@@ -22,6 +22,10 @@ class StateMachine {
   void update();
 
   State getState() const;
+
+  void setPublisher(IEventPublisher* publisher);
+
+  void publishState();
 
  private:
   void handleIdle();
@@ -38,5 +42,6 @@ class StateMachine {
   IMessageSource* source;
   Display* display;
   LedActuator* led;
+  IEventPublisher* publisher;
   unsigned long stateEnteredAt;
 };
