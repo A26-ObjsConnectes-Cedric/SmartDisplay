@@ -1,4 +1,5 @@
 #include "outputs/Display.h"
+
 #include <Wire.h>
 
 #include "config/Config.h"
@@ -6,7 +7,6 @@
 
 namespace {
 
-// Mise en page (écran 128x64) : en-tête de 0 à 30 px, texte du message en dessous
 const int16_t TITLE_X = 32;
 const int16_t TITLE_Y = 6;
 const int16_t SEPARATOR_Y = 30;
@@ -14,15 +14,10 @@ const int16_t BODY_X = 3;
 const int16_t BODY_Y = 36;
 const int16_t LINE_HEIGHT = 8;
 
-// Police par défaut (taille 1) : 6 px par caractère, soit 20 caractères par ligne
-// à partir de BODY_X. Trois lignes permettent d'afficher les 60 caractères maximum
-// d'un message valide (Message::MAX_TEXT_LENGTH).
+
 const unsigned int LINE_CHARS = 20;
 const int MAX_LINES = 3;
 
-// Découpe 'text' en lignes d'au plus LINE_CHARS caractères (positions début/fin).
-// Si breakOnSpaces est vrai, on coupe de préférence sur une espace.
-// Retourne true si tout le texte tient dans MAX_LINES lignes.
 bool wrapText(const String& text, bool breakOnSpaces, unsigned int starts[],
               unsigned int ends[], int& lineCount) {
   unsigned int length = text.length();
@@ -45,7 +40,6 @@ bool wrapText(const String& text, bool breakOnSpaces, unsigned int starts[],
     lineCount++;
 
     start = end;
-    // Les espaces de coupure ne s'affichent pas en début de ligne suivante
     while (breakOnSpaces && start < length && text.charAt(start) == ' ') {
       start++;
     }
@@ -55,28 +49,37 @@ bool wrapText(const String& text, bool breakOnSpaces, unsigned int starts[],
 
 }  // namespace
 
-// Le constructeur ne touche pas au matériel : le bus I2C est démarré dans begin()
 Display::Display()
     : screen(Config::OLED_WIDTH, Config::OLED_HEIGHT, &Wire, -1), ready(false) {}
 
 bool Display::begin() {
   Wire.begin(Config::OLED_SDA_PIN, Config::OLED_SCL_PIN);
 
-  // La bibliothèque ne détecte pas un écran absent : on vérifie la présence sur le bus
   Wire.beginTransmission(Config::OLED_I2C_ADDRESS);
   if (Wire.endTransmission() != 0) {
     return false;
   }
 
-  // Les deux derniers paramètres : réinitialiser l'écran, mais ne pas relancer Wire.begin()
   if (!screen.begin(SSD1306_SWITCHCAPVCC, Config::OLED_I2C_ADDRESS, true, false)) {
     return false;
   }
 
   screen.setTextColor(SSD1306_WHITE);
   ready = true;
+  setBrightness(Config::DEFAULT_BRIGHTNESS_PCT);
   showIdle();
   return true;
+}
+
+void Display::setBrightness(uint8_t percent) {
+  if (!ready) return;
+
+  if (percent > Config::MAX_BRIGHTNESS_PCT) {
+    percent = Config::MAX_BRIGHTNESS_PCT;
+  }
+  uint8_t contrast = static_cast<uint8_t>(percent * 255 / 100);
+  screen.ssd1306_command(SSD1306_SETCONTRAST);
+  screen.ssd1306_command(contrast);
 }
 
 void Display::drawHeader(const unsigned char* icon, const char* title) {
@@ -87,15 +90,11 @@ void Display::drawHeader(const unsigned char* icon, const char* title) {
   screen.drawFastHLine(0, SEPARATOR_Y, Config::OLED_WIDTH, SSD1306_WHITE);
 }
 
-// Écrit le texte sur 3 lignes maximum, positionnées une à une.
-// On n'utilise pas le retour à la ligne automatique de la bibliothèque : il ramène
-// le curseur à x = 0 (décalage avec la première ligne, et contact avec le cadre d'alerte).
 void Display::drawBody(const String& text) {
   unsigned int starts[MAX_LINES];
   unsigned int ends[MAX_LINES];
   int lineCount = 0;
 
-  // D'abord une coupure sur les espaces ; si le texte ne tient pas, coupure fixe
   if (!wrapText(text, true, starts, ends, lineCount)) {
     wrapText(text, false, starts, ends, lineCount);
   }
@@ -129,7 +128,6 @@ void Display::showMessage(const Message& message) {
   drawHeader(isAlert ? Icons::ALERT : Icons::INFO, isAlert ? "ALERT" : "INFO");
   drawBody(message.getText());
 
-  // Un cadre autour de l'écran distingue visuellement une alerte
   if (isAlert) {
     screen.drawRect(0, 0, Config::OLED_WIDTH, Config::OLED_HEIGHT, SSD1306_WHITE);
   }

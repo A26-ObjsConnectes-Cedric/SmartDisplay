@@ -14,6 +14,8 @@ class Display {
   void showMessage(const Message& message);
   void showError(const String& reason);
 
+  void setBrightness(uint8_t percent);
+
  private:
   void drawHeader(const unsigned char* icon, const char* title);
 

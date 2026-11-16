@@ -9,4 +9,8 @@ class IEventPublisher {
   virtual void publishState(const char* stateName, bool ledOn) = 0;
 
   virtual void publishMessage(const Message& message) = 0;
+
+  virtual void publishAck(const Message& message) = 0;
+
+  virtual void publishConfigAck(unsigned int displayDurationS, unsigned int brightnessPct) = 0;
 };
