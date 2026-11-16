@@ -24,6 +24,11 @@ constexpr unsigned long DISPLAY_DURATION_MS = 10000;
 
 constexpr unsigned long ERROR_DURATION_MS = 3000;
 
+constexpr uint8_t DEFAULT_BRIGHTNESS_PCT = 80;
+constexpr uint8_t MAX_BRIGHTNESS_PCT = 100;
+
+constexpr unsigned int MIN_DISPLAY_DURATION_S = 1;
+constexpr unsigned int MAX_DISPLAY_DURATION_S = 300;
 
 #define WIFI_RETRY_INTERVAL_MS 5000
 
@@ -32,10 +37,14 @@ constexpr unsigned long ERROR_DURATION_MS = 3000;
 #define MQTT_CLIENT_ID "smartdisplay-esp32"
 #define MQTT_RECONNECT_INTERVAL_MS 5000
 
-#define MQTT_TOPIC_CMD "ariane/smartdisplay/cmd"
-#define  MQTT_TOPIC_STATE "ariane/smartdisplay/state"
-#define MQTT_TOPIC_DATA  "ariane/smartdisplay/data"
+constexpr const char* MQTT_TOPIC_CMD = "ariane/smartdisplay/cmd";
+constexpr const char* MQTT_TOPIC_STATE = "ariane/smartdisplay/state";
+constexpr const char* MQTT_TOPIC_DATA = "ariane/smartdisplay/data";
+constexpr const char* MQTT_TOPIC_CONFIG = "ariane/smartdisplay/config";
+constexpr const char* MQTT_TOPIC_ACK = "ariane/smartdisplay/ack";
 
 constexpr const char* MQTT_WILL_PAYLOAD = "{\"state\":\"OFFLINE\"}";
+
+;
 
 } 

@@ -6,10 +6,13 @@
 
 class MqttPublisher : public IEventPublisher {
  public:
-  MqttPublisher(MqttService& mqtt, const char* stateTopic, const char* dataTopic);
+  MqttPublisher(MqttService& mqtt, const char* stateTopic, const char* dataTopic,
+                const char* ackTopic);
 
   void publishState(const char* stateName, bool ledOn) override;
   void publishMessage(const Message& message) override;
+  void publishAck(const Message& message) override;
+  void publishConfigAck(unsigned int displayDurationS, unsigned int brightnessPct) override;
 
  private:
   void send(const char* topic, const char* payload, bool retained);
@@ -17,4 +20,5 @@ class MqttPublisher : public IEventPublisher {
   MqttService& mqtt;
   const char* stateTopic;
   const char* dataTopic;
+  const char* ackTopic;
 };

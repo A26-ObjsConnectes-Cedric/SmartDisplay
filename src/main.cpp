@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 
+#include "inputs/ConfigSourceMqtt.h"
 #include "inputs/SourceMqtt.h"
 #include "config/Config.h"
 #include "config/secrets.h"
@@ -18,11 +19,15 @@
 Display display;
 LedActuator led(Config::LED_PIN);
 WifiService wifi(Secrets::WIFI_SSID, Secrets::WIFI_PASSWORD);
+
 MqttService mqtt(MQTT_HOST, MQTT_PORT, MQTT_CLIENT_ID,
                  Secrets::MQTT_USER, Secrets::MQTT_PASSWORD);
-SourceMqtt sourceMqtt(mqtt, MQTT_TOPIC_CMD);
+SourceMqtt sourceMqtt(mqtt, Config::MQTT_TOPIC_CMD);
+ConfigSourceMqtt configSource(mqtt, Config::MQTT_TOPIC_CONFIG);
+
 StateMachine stateMachine(&sourceMqtt, &display, &led);
-MqttPublisher publisher(mqtt, MQTT_TOPIC_STATE, MQTT_TOPIC_DATA);
+MqttPublisher publisher(mqtt, Config::MQTT_TOPIC_STATE, Config::MQTT_TOPIC_DATA,
+                        Config::MQTT_TOPIC_ACK);
 
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
@@ -33,12 +38,14 @@ void setup() {
   }
   stateMachine.begin();
   stateMachine.setPublisher(&publisher);
+  stateMachine.setConfigSource(&configSource);
   wifi.begin();
 
-  mqtt.setWill(MQTT_TOPIC_STATE, Config::MQTT_WILL_PAYLOAD);
+  mqtt.setWill(Config::MQTT_TOPIC_STATE, Config::MQTT_WILL_PAYLOAD);
   mqtt.setConnectHandler([]() { stateMachine.publishState(); });
   mqtt.begin();
   sourceMqtt.begin();
+  configSource.begin();
 }
 
 void loop() {
@@ -46,3 +53,4 @@ void loop() {
   mqtt.update();
   stateMachine.update();
 }
+

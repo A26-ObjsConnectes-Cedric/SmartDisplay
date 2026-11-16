@@ -5,11 +5,16 @@
 StateMachine::StateMachine(IMessageSource* source, Display* display, LedActuator* led)
     : currentState(State::IDLE),
       currentMessage(),
+      pendingConfig(),
       source(source),
+      configSource(nullptr),
       display(display),
       led(led),
       publisher(nullptr),
-      stateEnteredAt(0) {}
+      stateEnteredAt(0),
+      displayStartedAt(0),
+      displayDurationMs(Config::DISPLAY_DURATION_MS),
+      brightnessPct(Config::DEFAULT_BRIGHTNESS_PCT) {}
 
 void StateMachine::begin() {
   currentState = State::IDLE;
@@ -29,6 +34,12 @@ void StateMachine::update() {
     case State::DISPLAYING:
       handleDisplaying();
       break;
+    case State::ACK_SENT:
+      handleAckSent();
+      break;
+    case State::CONFIGURING:
+      handleConfiguring();
+      break;
     case State::ERROR:
       handleError();
       break;
@@ -39,6 +50,14 @@ State StateMachine::getState() const { return currentState; }
 
 void StateMachine::setPublisher(IEventPublisher* newPublisher) { publisher = newPublisher; }
 
+void StateMachine::setConfigSource(IConfigSource* newConfigSource) {
+  configSource = newConfigSource;
+}
+
+unsigned long StateMachine::getDisplayDurationMs() const { return displayDurationMs; }
+
+uint8_t StateMachine::getBrightnessPct() const { return brightnessPct; }
+
 void StateMachine::publishState() {
   if (publisher != nullptr) {
     publisher->publishState(stateName(currentState), led->isOn());
@@ -48,12 +67,19 @@ void StateMachine::publishState() {
 void StateMachine::handleIdle() {
   if (source->readMessage(currentMessage)) {
     changeState(State::MESSAGE_RECEIVED);
+    return;
+  }
+
+  if (configSource != nullptr && configSource->readConfig(pendingConfig)) {
+    changeState(State::CONFIGURING);
   }
 }
 
 void StateMachine::handleMessageReceived() {
   if (currentMessage.isValid()) {
     display->showMessage(currentMessage);
+    displayStartedAt = millis();
+
     if (currentMessage.getType() == MessageType::ALERT) {
       led->turnOn();
     } else {
@@ -71,18 +97,47 @@ void StateMachine::handleMessageReceived() {
   }
 }
 
-
 void StateMachine::handleDisplaying() {
+  if (publisher != nullptr) {
+    publisher->publishAck(currentMessage);
+  }
+  changeState(State::ACK_SENT);
+}
+
+
+void StateMachine::handleAckSent() {
   if (source->readMessage(currentMessage)) {
     changeState(State::MESSAGE_RECEIVED);
     return;
   }
 
-  if (millis() - stateEnteredAt >= Config::DISPLAY_DURATION_MS) {
+  if (millis() - displayStartedAt >= displayDurationMs) {
     led->turnOff();
     display->showIdle();
     changeState(State::IDLE);
   }
+}
+
+void StateMachine::handleConfiguring() {
+  if (!pendingConfig.valid) {
+    display->showError("Invalid config");
+    changeState(State::ERROR);
+    return;
+  }
+
+  if (pendingConfig.hasDuration) {
+    displayDurationMs = static_cast<unsigned long>(pendingConfig.displayDurationS) * 1000UL;
+  }
+  if (pendingConfig.hasBrightness) {
+    brightnessPct = static_cast<uint8_t>(pendingConfig.brightnessPct);
+    display->setBrightness(brightnessPct);
+  }
+
+  if (publisher != nullptr) {
+    publisher->publishConfigAck(static_cast<unsigned int>(displayDurationMs / 1000UL),
+                                brightnessPct);
+  }
+  changeState(State::IDLE);
 }
 
 void StateMachine::handleError() {
@@ -111,6 +166,10 @@ const char* StateMachine::stateName(State state) {
       return "MESSAGE_RECEIVED";
     case State::DISPLAYING:
       return "DISPLAYING";
+    case State::ACK_SENT:
+      return "ACK_SENT";
+    case State::CONFIGURING:
+      return "CONFIGURING";
     case State::ERROR:
       return "ERROR";
   }
