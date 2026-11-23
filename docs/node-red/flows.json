@@ -1,0 +1,448 @@
+[
+    {
+        "id": "tab_sd",
+        "type": "tab",
+        "label": "SmartDisplay",
+        "disabled": false,
+        "info": "Projet Ariane - Mandat 08 SmartDisplay.\nMQTT -> InfluxDB (historique) et HTTP -> MQTT (commandes depuis Grafana).",
+        "env": [
+            {
+                "name": "SMARTDISPLAY_API_KEY",
+                "value": "*****",
+                "type": "str"
+            }
+        ]
+    },
+    {
+        "id": "c_1. MQTT -> InfluxDB (historique)",
+        "type": "comment",
+        "z": "tab_sd",
+        "name": "1. MQTT -> InfluxDB (historique)",
+        "info": "",
+        "x": 210,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "influx_out",
+        "type": "influxdb out",
+        "z": "tab_sd",
+        "influxdb": "cfg_influx",
+        "name": "InfluxDB smartdisplay",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "smartdisplay",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "ariane",
+        "bucket": "smartdisplay",
+        "x": 1220,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "in_state",
+        "type": "mqtt in",
+        "z": "tab_sd",
+        "name": "",
+        "topic": "ariane/smartdisplay/state",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "cfg_broker",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 410,
+        "y": 100,
+        "wires": [
+            [
+                "fn_state"
+            ]
+        ]
+    },
+    {
+        "id": "fn_state",
+        "type": "function",
+        "z": "tab_sd",
+        "name": "state -> InfluxDB",
+        "func": "// Topic state -> mesure panel_state (historique des états du panneau)\n// Un message conservé (retained) est le rejeu du dernier état à l'abonnement : on l'ignore.\nif (msg.retain === true) { return null; }\nconst p = msg.payload;\nif (!p || typeof p.state !== 'string') { node.warn('state: invalid payload'); return null; }\n\n// Code numérique de l'état : sert au graphique d'états de Grafana\nconst codes = { OFFLINE: 0, IDLE: 1, MESSAGE_RECEIVED: 2, DISPLAYING: 3, ACK_SENT: 4, CONFIGURING: 5, ERROR: 6 };\nconst fields = { state_code: codes[p.state] !== undefined ? codes[p.state] : -1 };\nif (typeof p.led === 'boolean') { fields.led = p.led ? 1 : 0; }\nif (typeof p.uptime_s === 'number') { fields.uptime_s = p.uptime_s; }\n\nmsg.measurement = 'panel_state';\nmsg.payload = [fields, { state: p.state }];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 100,
+        "wires": [
+            [
+                "influx_out",
+                "6812f3820d437b43"
+            ]
+        ]
+    },
+    {
+        "id": "in_data",
+        "type": "mqtt in",
+        "z": "tab_sd",
+        "name": "",
+        "topic": "ariane/smartdisplay/data",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "cfg_broker",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 410,
+        "y": 160,
+        "wires": [
+            [
+                "fn_data"
+            ]
+        ]
+    },
+    {
+        "id": "fn_data",
+        "type": "function",
+        "z": "tab_sd",
+        "name": "data -> InfluxDB",
+        "func": "// Topic data -> mesure panel_message (messages réellement affichés par le panneau)\nconst p = msg.payload;\nif (!p || typeof p.text !== 'string' || typeof p.id !== 'string' || (p.type !== 'info' && p.type !== 'alert')) {\n  node.warn('data: invalid payload'); return null;\n}\nmsg.measurement = 'panel_message';\nmsg.payload = [{ id: p.id, text: p.text }, { type: p.type }];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 160,
+        "wires": [
+            [
+                "influx_out"
+            ]
+        ]
+    },
+    {
+        "id": "in_ack",
+        "type": "mqtt in",
+        "z": "tab_sd",
+        "name": "",
+        "topic": "ariane/smartdisplay/ack",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "cfg_broker",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 410,
+        "y": 220,
+        "wires": [
+            [
+                "fn_ack"
+            ]
+        ]
+    },
+    {
+        "id": "fn_ack",
+        "type": "function",
+        "z": "tab_sd",
+        "name": "ack -> InfluxDB",
+        "func": "// Topic ack -> mesure panel_ack (accusés de messages) ou panel_config (accusés de configuration)\nconst p = msg.payload;\nif (!p || typeof p.status !== 'string') { node.warn('ack: invalid payload'); return null; }\n\nif (p.status === 'displayed' && typeof p.id === 'string') {\n  const fields = { id: p.id };\n  // Délai entre l'envoi de la commande par Node-RED et l'accusé de l'ESP32\n  const sent = flow.get('sent') || {};\n  if (sent[p.id] !== undefined) {\n    fields.latency_ms = Date.now() - sent[p.id];\n    delete sent[p.id];\n    flow.set('sent', sent);\n  }\n  msg.measurement = 'panel_ack';\n  msg.payload = [fields, { status: 'displayed', type: p.type === 'alert' ? 'alert' : 'info' }];\n  return msg;\n}\n\nif (p.status === 'configured' && typeof p.display_duration_s === 'number' && typeof p.brightness_pct === 'number') {\n  msg.measurement = 'panel_config';\n  msg.payload = [{ display_duration_s: p.display_duration_s, brightness_pct: p.brightness_pct }, { status: 'configured' }];\n  return msg;\n}\n\nnode.warn('ack: unknown payload');\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 220,
+        "wires": [
+            [
+                "influx_out"
+            ]
+        ]
+    },
+    {
+        "id": "c_2. HTTP (Grafana) -> MQTT (commandes). Pré-contrôle CORS (OPTIONS) : réglage httpNodeCors de settings.js",
+        "type": "comment",
+        "z": "tab_sd",
+        "name": "2. HTTP (Grafana) -> MQTT (commandes). Pré-contrôle CORS (OPTIONS) : réglage httpNodeCors de settings.js",
+        "info": "",
+        "x": 460,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "mqtt_out_cmd",
+        "type": "mqtt out",
+        "z": "tab_sd",
+        "name": "cmd",
+        "topic": "ariane/smartdisplay/cmd",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "cfg_broker",
+        "x": 1240,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "mqtt_out_config",
+        "type": "mqtt out",
+        "z": "tab_sd",
+        "name": "config",
+        "topic": "ariane/smartdisplay/config",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "cfg_broker",
+        "x": 1240,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "http_resp",
+        "type": "http response",
+        "z": "tab_sd",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1240,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "http_cmd",
+        "type": "http in",
+        "z": "tab_sd",
+        "name": "",
+        "url": "/smartdisplay/cmd",
+        "method": "post",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 440,
+        "y": 400,
+        "wires": [
+            [
+                "fn_cmd"
+            ]
+        ]
+    },
+    {
+        "id": "fn_cmd",
+        "type": "function",
+        "z": "tab_sd",
+        "name": "validate cmd",
+        "func": "// POST /smartdisplay/cmd : valide la commande, génère l'identifiant et publie sur MQTT\n\n// Les en-têtes CORS sont ajoutés par Node-RED (réglage httpNodeCors de settings.js)\nconst headers = { 'Content-Type': 'application/json' };\nfunction reply(status, body) { msg.statusCode = status; msg.headers = headers; msg.payload = body; return [null, null, msg]; }\n\nconst apiKey = env.get('SMARTDISPLAY_API_KEY');\nif (!apiKey) { return reply(503, { error: 'API key not configured on the server' }); }\nif (!msg.req || msg.req.headers['x-api-key'] !== apiKey) { return reply(401, { error: 'invalid API key' }); }\n\nlet body = msg.payload;\nif (typeof body === 'string') {\n  try { body = JSON.parse(body); } catch (e) { return reply(400, { error: 'invalid JSON' }); }\n}\nif (!body || typeof body !== 'object' || Array.isArray(body)) { return reply(400, { error: 'JSON object expected' }); }\n\nif (typeof body.text !== 'string') { return reply(400, { error: \"field 'text' missing or not a string\" }); }\n// L'écran OLED n'affiche que l'ASCII : on retire les accents (é -> e), les autres caractères deviennent '?'\nlet text = body.text.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^\\x20-\\x7e]/g, '?').trim();\nif (text.length === 0) { return reply(400, { error: \"field 'text' is empty\" }); }\nif (text.length > 60) { return reply(400, { error: \"field 'text' too long (60 characters maximum)\" }); }\nif (body.type !== 'info' && body.type !== 'alert') { return reply(400, { error: \"field 'type' must be 'info' or 'alert'\" }); }\n\nconst id = 'msg-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);\n\n// On mémorise l'instant d'envoi (50 commandes au maximum) pour calculer le délai de l'accusé\nconst sent = flow.get('sent') || {};\nsent[id] = Date.now();\nconst keys = Object.keys(sent);\nif (keys.length > 50) { delete sent[keys[0]]; }\nflow.set('sent', sent);\n\nconst mqttMsg = { topic: 'ariane/smartdisplay/cmd', payload: JSON.stringify({ id: id, text: text, type: body.type }), qos: 0, retain: false };\nconst influxMsg = { measurement: 'panel_command', payload: [{ id: id, text: text }, { type: body.type }] };\nconst res = msg;\nres.statusCode = 202;\nres.headers = headers;\nres.payload = { status: 'sent', id: id, text: text, type: body.type };\nreturn [mqttMsg, influxMsg, res];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 730,
+        "y": 400,
+        "wires": [
+            [
+                "mqtt_out_cmd",
+                "61e66239a8bd1c61"
+            ],
+            [
+                "influx_out"
+            ],
+            [
+                "http_resp"
+            ]
+        ]
+    },
+    {
+        "id": "http_config",
+        "type": "http in",
+        "z": "tab_sd",
+        "name": "",
+        "url": "/smartdisplay/config",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 440,
+        "y": 540,
+        "wires": [
+            [
+                "fn_config"
+            ]
+        ]
+    },
+    {
+        "id": "fn_config",
+        "type": "function",
+        "z": "tab_sd",
+        "name": "validate config",
+        "func": "// POST /smartdisplay/config : valide la configuration et publie sur MQTT\n\n// Les en-têtes CORS sont ajoutés par Node-RED (réglage httpNodeCors de settings.js)\nconst headers = { 'Content-Type': 'application/json' };\nfunction reply(status, body) { msg.statusCode = status; msg.headers = headers; msg.payload = body; return [null, msg]; }\n\nconst apiKey = env.get('SMARTDISPLAY_API_KEY');\nif (!apiKey) { return reply(503, { error: 'API key not configured on the server' }); }\nif (!msg.req || msg.req.headers['x-api-key'] !== apiKey) { return reply(401, { error: 'invalid API key' }); }\n\nlet body = msg.payload;\nif (typeof body === 'string') {\n  try { body = JSON.parse(body); } catch (e) { return reply(400, { error: 'invalid JSON' }); }\n}\nif (!body || typeof body !== 'object' || Array.isArray(body)) { return reply(400, { error: 'JSON object expected' }); }\n\nconst config = {};\nconst d = body.display_duration_s;\nconst b = body.brightness_pct;\nif (d !== undefined && d !== null) {\n  if (!Number.isInteger(d)) { return reply(400, { error: \"field 'display_duration_s' must be an integer\" }); }\n  if (d < 1 || d > 300) { return reply(400, { error: \"field 'display_duration_s' out of range (1 to 300)\" }); }\n  config.display_duration_s = d;\n}\nif (b !== undefined && b !== null) {\n  if (!Number.isInteger(b)) { return reply(400, { error: \"field 'brightness_pct' must be an integer\" }); }\n  if (b < 0 || b > 100) { return reply(400, { error: \"field 'brightness_pct' out of range (0 to 100)\" }); }\n  config.brightness_pct = b;\n}\nif (Object.keys(config).length === 0) { return reply(400, { error: \"no known field (display_duration_s, brightness_pct)\" }); }\n\nconst mqttMsg = { topic: 'ariane/smartdisplay/config', payload: JSON.stringify(config), qos: 0, retain: false };\nconst res = msg;\nres.statusCode = 202;\nres.headers = headers;\nres.payload = { status: 'sent', config: config };\nreturn [mqttMsg, res];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 730,
+        "y": 540,
+        "wires": [
+            [
+                "mqtt_out_config",
+                "8aa41d4e3e6588c2"
+            ],
+            [
+                "http_resp"
+            ]
+        ]
+    },
+    {
+        "id": "ef7334c9de2c978f",
+        "type": "catch",
+        "z": "tab_sd",
+        "name": "Erreurs du flow",
+        "scope": null,
+        "uncaught": false,
+        "x": 410,
+        "y": 660,
+        "wires": [
+            [
+                "1c820de956cf7e07"
+            ]
+        ]
+    },
+    {
+        "id": "1c820de956cf7e07",
+        "type": "debug",
+        "z": "tab_sd",
+        "name": "DBG erreurs",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "61e66239a8bd1c61",
+        "type": "debug",
+        "z": "tab_sd",
+        "name": "DBG -> mqtt cmd",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1000,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "6812f3820d437b43",
+        "type": "debug",
+        "z": "tab_sd",
+        "name": "DBG -> Influx state",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 970,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "8aa41d4e3e6588c2",
+        "type": "debug",
+        "z": "tab_sd",
+        "name": "DBG -> mqtt config",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1000,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "cfg_influx",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": "8086",
+        "protocol": "http",
+        "database": "smartdisplay",
+        "name": "InfluxDB VPS",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://146.190.242.159:3002",
+        "timeout": "10",
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "cfg_broker",
+        "type": "mqtt-broker",
+        "name": "Mosquitto VPS",
+        "broker": "mqtt.edwrdl-cedric.com",
+        "port": "3005",
+        "clientid": "nodered-smartdisplay",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "dca8f0c76975079f",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-influxdb": "0.7.0"
+        }
+    }
+]
