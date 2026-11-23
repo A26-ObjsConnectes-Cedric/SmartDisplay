@@ -33,7 +33,7 @@ constexpr unsigned int MAX_DISPLAY_DURATION_S = 300;
 #define WIFI_RETRY_INTERVAL_MS 5000
 
 #define MQTT_HOST "mqtt.edwrdl-cedric.com"
-#define MQTT_PORT 1883
+#define MQTT_PORT 3005
 #define MQTT_CLIENT_ID "smartdisplay-esp32"
 #define MQTT_RECONNECT_INTERVAL_MS 5000
 
